@@ -15,22 +15,20 @@ def listen(udp):
 
 # Getting user
 msg = input("Nome de usuário: ")
+msg = "USER:" + msg
 
 # Socket TCP
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-udp.sendto(("USER:"+msg).encode(), destination)
-
+udp.sendto(msg.encode(), destination)
 print("\nConexão estabelecida. Para sair digite /bye\n")
+
 # Dispara thread para escutar o servidor
-t = threading.Thread(target=listen, args=[udp])
+t = threading.Thread(target=listen, args=[udp], daemon = True)
 t.start()
 
-while msg !="/bye":
+while msg!="/bye":
 
     msg = input()
     udp.sendto(msg.encode(), destination)
 
-    
-
 udp.close()
-
