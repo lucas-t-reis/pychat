@@ -14,6 +14,40 @@ udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 udp.bind(origin)
 
+# Encerra a comunicação cliente x servidor e notifica
+# outros usuários
+def logout(msg, client):
+    name = clients[client]
+    del clients[client]
+    
+    for address in clients:
+        broadcast = name + " saiu."
+        udp.sendto(broadcast.encode(), address)
+    
+# Lista clientes conectados
+def list_users(msg, client):
+    msg = "Clientes conectados:\n"
+    for address,name in clients.items():
+        msg += name + ", "
+    
+    udp.sendto(msg[:-2].encode(), client) 
+
+def chat(msg, client):
+    print(clients[client] + ":" + msg)
+    return
+
+def PROTOCOL(msg, client):
+    
+    switcher = {
+            "/bye":logout,
+            "/list":list_users,
+    }
+    
+    # Assumindo tudo que não seja uma mensagem válida
+    # na definição do protocolo como MSG:<usuário>:<texto>
+    func = switcher.get(msg, chat) 
+    func(msg, client)
+
 try:
     while True:
         
@@ -29,25 +63,10 @@ try:
                 udp.sendto(broadcast.encode(), address)
             print("Adding ", client, name)
             clients[client] = name
+            continue
+
+        PROTOCOL(msg, client)
         
-        # Lista clientes conectados
-        if msg == "/list":
-            
-            msg = "Clientes conectados:\n"
-            for address,name in clients.items():
-                msg += name + ", "
-            
-            udp.sendto(msg[:-2].encode(), client) 
-
-        if msg == "/bye":    
-            name = clients[client]
-            del clients[client]
-            
-            for address in clients:
-                broadcast = name + " saiu."
-                udp.sendto(broadcast.encode(), address)
-
-
     udp.close()
 
 finally:
