@@ -5,9 +5,9 @@ HOST = ""
 PORT = 20000
 origin = (HOST, PORT)
 
-
 clients = set()
 clients_lock = threading.Lock()
+"""
 def broadcast(msg):
     with clients_lock:
         for (connection) in clients:
@@ -29,25 +29,53 @@ def connected(connection, client):
     connection.close()
 
     return
+"""
 
-
-tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-tcp.bind(origin)
-tcp.listen(1)
+# Configuração inicial do servidor
+udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# Reaproveitando portas ocupadas (previne problemas com interrupção de execução)
+udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+udp.bind(origin)
 
 try:
     while True:
         
-        connection, client = tcp.accept()
-       
-        with clients_lock:
-            clients.add(connection)
+        # Recebendo mensagem do cliente
+        msg, client = udp.recvfrom(1024)
+        msg = msg.decode()
         
-        t = threading.Thread(target=connected, args=(connection, client))
-        t.start()
+        if msg.find("USER") != -1:
+            new_client = msg.split(":")[1]
+            for (name, address) in clients:
+                broadcastMsg = new_client + " acabou de entrar"
+                udp.sendto(broadcastMsg.encode(), address)
+            if (new_client,client) not in clients:
+                print(client, msg)
+                clients.add((new_client,client))
 
-    tcp.close()
+        # Lista clientes conectados
+        if msg == "/list":
+            
+            msg = "Clientes conectados:\n"
+            for (name, address) in clients:
+                msg += name + ", "
+            
+            udp.sendto(msg[:-2].encode(), client) 
+
+        if msg == "BYE":
+            qual = ""
+            for (name, address) in clients:
+                if address == client:
+                    qual = name
+                    break
+            clients.remove((qual, client))
+            for (name, address) in clients:
+                msg = qual + " saiu."
+                udp.sendto(msg.encode(), address)
+
+
+
+    udp.close()
+
 finally:
-    connection.close()
+    print("oi")
