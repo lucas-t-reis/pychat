@@ -7,15 +7,13 @@ origin = (HOST, PORT)
 
 clients = dict()
 cache_lock = threading.Lock()
-FILE_CACHE = "" 
-FILE_NAME = "null"
+FILE_CACHE = "null"
 
 # Configuração inicial do servidor e reaproveitando 
 # as portas ocupadas (previne problemas com interrupção de execução)
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 udp.bind(origin)
-
 
 # Cria uma nova conexão TCP que é utilizada para transferência de arquivos
 tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -45,10 +43,13 @@ def list_users(msg, client):
 # Instancia uma thread para gerenciar cada conexão requisitada.
 def readFile(connection, client, udp_address, fileName):
     
+    global FILE_CACHE 
     temp = bytearray()
+    
+    print("FILE:" + fileName)
+    
     while True:
         
-        print("Recieving")
         data = connection.recv(1024)
         
         if not data:
@@ -59,7 +60,7 @@ def readFile(connection, client, udp_address, fileName):
     
     # Guardando os dados na cache do servidor
     with cache_lock:
-        #FILE_CACHE = (fileName, temp)
+        FILE_CACHE = fileName
         msg = clients[udp_address] + " enviou " + fileName
         for address in clients:
             if address == udp_address:
@@ -72,14 +73,10 @@ def readFile(connection, client, udp_address, fileName):
 
 def getClientFile(msg, client):
     
-    FILE_CACHE = msg
-    print("Atribuindo o nome " + msg + " ao file")
-    FILE_NAME = msg
     udp_address = client
     connection, client = tcp.accept()
     t = threading.Thread(target=readFile, args=(connection, client, udp_address, msg))
     t.start()
-
 
 def sendFile(connection, client, udp_address, msg):
 
@@ -90,24 +87,21 @@ def sendFile(connection, client, udp_address, msg):
 
 def processFileRequest(msg, client):
     
-    if(FILE_NAME != msg):
-        print("xxx" + FILE_NAME + "xxx")
-        print("kkk" + msg + "kkk")
+    if FILE_CACHE != msg:
         error_msg = "Arquivo inexistente.\n"
         udp.sendto(error_msg.encode(), client)
+        
         return
 
     udp_address = client
     connection, client = tcp.accept()
-    connection.send("OK_FILE".encode())
-    t = threading.Thread(target=sendFile, args=(connection, client, udp_address, msg))
+    t = threading.Thread(target=sendFile, args=(connection, client, udp_address, msg), daemon=True)
     t.start()
-
-
 
 def chat(msg, client):
 
     name = clients[client]
+    print("MSG:<" + name + ">:" + msg)
     msg = name + ":" + msg
     
     for address in clients:
@@ -115,15 +109,11 @@ def chat(msg, client):
             continue
         udp.sendto(msg.encode(), address)
 
-    print("MSG:" + msg)
-    return
-
-
 
 def PROTOCOL(msg, client):
     
     args = msg.split()
-    msg = args[0]
+    cmd = args[0]
     
     # Se o primeiro comando digitado não for nenhum dos 
     # três casos abaixo, o comportamento padrão é assumir
@@ -137,12 +127,11 @@ def PROTOCOL(msg, client):
     
     # Assumindo tudo que não seja uma mensagem válida
     # na definição do protocolo como MSG:<usuário>:<texto>
-    func = switcher.get(msg, chat) 
+    func = switcher.get(cmd, chat) 
     if args[0] == "/file" or args[0] == "/get":
         func(args[1], client)
     else:
         func(msg, client)
-
 try:
     while True:
         
@@ -152,7 +141,7 @@ try:
         
         # Cadastrando o login do usuário no servidor
         if client not in clients:
-            name = msg.split(":")[1] 
+            name = msg.replace("USER:","") 
             for address in clients:
                 broadcast = name + " entrou"
                 udp.sendto(broadcast.encode(), address)
