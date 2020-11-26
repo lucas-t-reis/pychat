@@ -7,11 +7,12 @@ origin = (HOST, PORT)
 
 clients = dict()
 cache_lock = threading.Lock()
-FILE_CACHE = ("", bytearray())
+FILE_CACHE = "" 
+FILE_NAME = "null"
 
-# Configuração inicial do servidor
+# Configuração inicial do servidor e reaproveitando 
+# as portas ocupadas (previne problemas com interrupção de execução)
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# Reaproveitando portas ocupadas (previne problemas com interrupção de execução)
 udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 udp.bind(origin)
 
@@ -40,7 +41,8 @@ def list_users(msg, client):
     
     udp.sendto(msg[:-2].encode(), client) 
 
-
+# Método assíncrono para leitura dos arquivos enviados pelo cliente.
+# Instancia uma thread para gerenciar cada conexão requisitada.
 def readFile(connection, client, udp_address, fileName):
     
     temp = bytearray()
@@ -51,28 +53,56 @@ def readFile(connection, client, udp_address, fileName):
         
         if not data:
             break
-        print("data=%s", data)
     
         # Write data to cache
         temp += data
     
     # Guardando os dados na cache do servidor
     with cache_lock:
-        FILE_CACHE = (fileName, temp)
+        #FILE_CACHE = (fileName, temp)
         msg = clients[udp_address] + " enviou " + fileName
         for address in clients:
             if address == udp_address:
                 continue
             udp.sendto(msg.encode(), address)
 
+    with open(fileName, "wb") as file:
+        file.write(temp)
+
 
 def getClientFile(msg, client):
     
-    
+    FILE_CACHE = msg
+    print("Atribuindo o nome " + msg + " ao file")
+    FILE_NAME = msg
     udp_address = client
     connection, client = tcp.accept()
     t = threading.Thread(target=readFile, args=(connection, client, udp_address, msg))
     t.start()
+
+
+def sendFile(connection, client, udp_address, msg):
+
+    with open(FILE_CACHE, "rb") as file:
+        while(payload := file.read(1024)):
+            connection.send(payload)
+    udp.sendto("Arquivo enviado\n".encode(), udp_address)
+
+def processFileRequest(msg, client):
+    
+    if(FILE_NAME != msg):
+        print("xxx" + FILE_NAME + "xxx")
+        print("kkk" + msg + "kkk")
+        error_msg = "Arquivo inexistente.\n"
+        udp.sendto(error_msg.encode(), client)
+        return
+
+    udp_address = client
+    connection, client = tcp.accept()
+    connection.send("OK_FILE".encode())
+    t = threading.Thread(target=sendFile, args=(connection, client, udp_address, msg))
+    t.start()
+
 
 
 def chat(msg, client):
@@ -95,16 +125,20 @@ def PROTOCOL(msg, client):
     args = msg.split()
     msg = args[0]
     
+    # Se o primeiro comando digitado não for nenhum dos 
+    # três casos abaixo, o comportamento padrão é assumir
+    # mensagem de texto a.k.a chat
     switcher = {
             "/bye":logout,
             "/list":list_users,
-            "/file":getClientFile
+            "/file":getClientFile,
+            "/get":processFileRequest
     }
     
     # Assumindo tudo que não seja uma mensagem válida
     # na definição do protocolo como MSG:<usuário>:<texto>
     func = switcher.get(msg, chat) 
-    if args[0] == "/file":
+    if args[0] == "/file" or args[0] == "/get":
         func(args[1], client)
     else:
         func(msg, client)

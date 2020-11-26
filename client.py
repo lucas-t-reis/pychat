@@ -11,7 +11,9 @@ def listen(udp):
    
     while True:
         msg, addr = udp.recvfrom(1024)
-        print(msg.decode())
+        print("\n>> " + msg.decode())
+        print(">> ", end="")
+
 # Função que envia dados para o servidor
 def sendFile(arquivo):
     
@@ -26,9 +28,27 @@ def sendFile(arquivo):
     
     tcp.close()
 
+
+def getFile(user, arquivo):
+
+
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.connect(destination)
+
+    msg, client = tcp.recvfrom(1024)
+    if msg == "OK_FILE":
+        # Lê o arquivo recebido pela transmissão
+        with open(user + arquivo, "wb") as file:
+            while(data := tcp.recv(1024)):
+                file.write(data)
+    
+    tcp.close()
+
+    return
+
 # Getting user
-msg = input("Nome de usuário: ")
-msg = "USER:" + msg
+user = input("Nome de usuário: ")
+msg = "USER:" + user 
 
 # Socket TCP
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -41,16 +61,13 @@ t.start()
 
 while msg!="/bye":
 
-    msg = input()
-    
+    msg = input(">> ")
     # Conferindo se o cliente quer enviar um arquivo
+    udp.sendto(msg.encode(), destination)
     args = msg.split()
     if args[0] == "/file":
-        udp.sendto(msg.encode(), destination)
         sendFile(args[1])
     elif args[0] == "/get":
-        print("oi")
-    else:
-        udp.sendto(msg.encode(), destination)
+        getFile(user, args[1])
 
 udp.close()
