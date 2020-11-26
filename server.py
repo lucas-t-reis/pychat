@@ -41,7 +41,7 @@ def list_users(msg, client):
     udp.sendto(msg[:-2].encode(), client) 
 
 
-def readFile(connection, client, fileName):
+def readFile(connection, client, udp_address, fileName):
     
     temp = bytearray()
     while True:
@@ -59,17 +59,20 @@ def readFile(connection, client, fileName):
     # Guardando os dados na cache do servidor
     with cache_lock:
         FILE_CACHE = (fileName, temp)
+        msg = clients[udp_address] + " enviou " + fileName
+        for address in clients:
+            if address == udp_address:
+                continue
+            udp.sendto(msg.encode(), address)
 
 
 def getClientFile(msg, client):
     
     
-    address = client
+    udp_address = client
     connection, client = tcp.accept()
-    t = threading.Thread(target=readFile, args=(connection, client, msg))
+    t = threading.Thread(target=readFile, args=(connection, client, udp_address, msg))
     t.start()
-    print("Acabou")
-    print(clients[address] + "enviou" + msg)
 
 
 def chat(msg, client):
