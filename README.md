@@ -8,9 +8,9 @@
   
 ## Functional requirements
 
-- MSG:"text" forward message to all other nodes excepts source.
+- ~MSG:"text" forward message to all other nodes excepts source.~
 
-- MSG:"name":"text" repeats above function plus printing source's name.
+- ~MSG:"name":"text" repeats above function plus printing source's name.~
 
 - ~LIST: print the entire list.~
 
