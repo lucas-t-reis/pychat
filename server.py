@@ -24,15 +24,24 @@ tcp.listen(1)
 # Encerra a comunicação cliente x servidor e notifica
 # outros usuários
 def logout(msg, client):
+
+    # Imprimindo Log na tela do servidor (Feedback)
+    print("BYE (" + clients[client] + ")")
+
     name = clients[client]
     del clients[client]
-    
+
+
     broadcast = name + " saiu."
     for address in clients:
         udp.sendto(broadcast.encode(), address)
     
 # Lista clientes conectados
 def list_users(msg, client):
+
+	# Imprimindo Log na tela do servidor (Feedback)
+    print("LIST (" + clients[client] + ")")
+
     msg = "Clientes conectados:\n"
     for address,name in clients.items():
         msg += name + ", "
@@ -46,7 +55,8 @@ def readFile(connection, client, udp_address, fileName):
     global FILE_CACHE 
     temp = bytearray()
     
-    print("FILE:" + fileName)
+	# Imprimindo Log na tela do servidor (Feedback)
+    print("FILE:" + fileName + " (" + clients[udp_address] + ")")
     
     while True:
         
@@ -62,6 +72,7 @@ def readFile(connection, client, udp_address, fileName):
     with cache_lock:
         FILE_CACHE = fileName
         msg = clients[udp_address] + " enviou " + fileName
+
         for address in clients:
             if address == udp_address:
                 continue
@@ -79,6 +90,9 @@ def getClientFile(msg, client):
     t.start()
 
 def sendFile(connection, client, udp_address, msg):
+
+	# Imprimindo Log na tela do servidor (Feedback)
+    print("GET: " + FILE_CACHE + " (" + clients[udp_address] + ")")
 
     with open(FILE_CACHE, "rb") as file:
         while(payload := file.read(1024)):
